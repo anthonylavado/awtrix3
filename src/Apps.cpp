@@ -630,6 +630,14 @@ void ShowCustomApp(String name, FastLED_NeoMatrix *matrix, MatrixDisplayUiState 
                 {
                     ca->scrollposition -= movementFactor * (ca->scrollSpeed / 100);
                 }
+                if (ca->scrollToEnd)
+                {
+                    float stopPosition = (float)(32 - ca->textOffset - (int16_t)textWidth);
+                    if (ca->scrollposition < stopPosition)
+                    {
+                        ca->scrollposition = stopPosition;
+                    }
+                }
             }
         }
         else

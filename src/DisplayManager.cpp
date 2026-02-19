@@ -689,6 +689,7 @@ bool DisplayManager_::generateCustomPage(const String &name, JsonObject doc, boo
   customApp.blink = doc.containsKey("blinkText") ? doc["blinkText"].as<int>() : 0;
   customApp.center = doc.containsKey("center") ? doc["center"].as<bool>() : true;
   customApp.noScrolling = doc.containsKey("noScroll") ? doc["noScroll"] : false;
+  customApp.scrollToEnd = doc.containsKey("scrollToEnd") ? doc["scrollToEnd"].as<bool>() : false;
   customApp.name = name;
 
   customApp.overlay = doc.containsKey("overlay") ? getOverlay(doc["overlay"].as<String>()) : NONE;
