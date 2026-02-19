@@ -139,7 +139,7 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
         }
         else
         {
-            DisplayManager.drawFilledRect(0 + x, 0 + y, 32, 8, TEXTCOLOR_888);
+            DisplayManager.drawFilledRect(0 + x, 0 + y, 32, 8, TIME_COLOR > 0 ? TIME_COLOR : TEXTCOLOR_888);
         }
 
         t[2] = (timeformat[2] == ' ' && timer_time() % 2) ? ';' : ':';
@@ -629,6 +629,14 @@ void ShowCustomApp(String name, FastLED_NeoMatrix *matrix, MatrixDisplayUiState 
                 else
                 {
                     ca->scrollposition -= movementFactor * (ca->scrollSpeed / 100);
+                }
+                if (ca->scrollToEnd)
+                {
+                    float stopPosition = (float)(32 - ca->textOffset - (int16_t)textWidth);
+                    if (ca->scrollposition < stopPosition)
+                    {
+                        ca->scrollposition = stopPosition;
+                    }
                 }
             }
         }
