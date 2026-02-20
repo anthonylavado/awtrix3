@@ -593,8 +593,12 @@ void ShowCustomApp(String name, FastLED_NeoMatrix *matrix, MatrixDisplayUiState 
 
     if (textWidth > availableWidth && !(state->appState == IN_TRANSITION))
     {
-        if (ca->scrollposition + ca->textOffset <= (-textWidth))
+        bool scrollComplete = ca->scrollposition + ca->textOffset <= (-textWidth);
+        if (ca->scrollToEnd && ca->scrollEndReached)
+            scrollComplete = true;
+        if (scrollComplete)
         {
+            ca->scrollEndReached = false;
             if (ca->iconWasPushed && ca->pushIcon == 2)
             {
                 ca->iconWasPushed = false;
@@ -636,6 +640,7 @@ void ShowCustomApp(String name, FastLED_NeoMatrix *matrix, MatrixDisplayUiState 
                     if (ca->scrollposition < stopPosition)
                     {
                         ca->scrollposition = stopPosition;
+                        ca->scrollEndReached = true;
                     }
                 }
             }
