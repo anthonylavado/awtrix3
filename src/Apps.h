@@ -55,6 +55,8 @@ struct CustomApp
     bool noScrolling = true;
     bool scrollToEnd = false;
     bool scrollEndReached = false;
+    int16_t scrollHold = 0;
+    int16_t scrollHoldCounter = 0;
     bool lifeTimeEnd = false;
     uint8_t jpegDataBuffer[1000];
     unsigned int jpegDataSize = 0;

@@ -598,26 +598,34 @@ void ShowCustomApp(String name, FastLED_NeoMatrix *matrix, MatrixDisplayUiState 
             scrollComplete = true;
         if (scrollComplete)
         {
-            ca->scrollEndReached = false;
-            if (ca->iconWasPushed && ca->pushIcon == 2)
+            if (ca->scrollHold > 0 && ca->scrollHoldCounter < ca->scrollHold)
             {
-                ca->iconWasPushed = false;
+                ++ca->scrollHoldCounter;
             }
-            if ((ca->currentRepeat + 1 >= ca->repeat) && (ca->repeat > 0))
+            else
             {
-                DisplayManager.setAutoTransition(true);
-                ca->currentRepeat = 0;
-                DisplayManager.nextApp();
+                ca->scrollHoldCounter = 0;
+                ca->scrollEndReached = false;
+                if (ca->iconWasPushed && ca->pushIcon == 2)
+                {
+                    ca->iconWasPushed = false;
+                }
+                if ((ca->currentRepeat + 1 >= ca->repeat) && (ca->repeat > 0))
+                {
+                    DisplayManager.setAutoTransition(true);
+                    ca->currentRepeat = 0;
+                    DisplayManager.nextApp();
+                    ca->scrollDelay = 0;
+                    ca->scrollposition = 9 + ca->textOffset;
+                    return;
+                }
+                else if (ca->repeat > 0)
+                {
+                    ++ca->currentRepeat;
+                }
                 ca->scrollDelay = 0;
                 ca->scrollposition = 9 + ca->textOffset;
-                return;
             }
-            else if (ca->repeat > 0)
-            {
-                ++ca->currentRepeat;
-            }
-            ca->scrollDelay = 0;
-            ca->scrollposition = 9 + ca->textOffset;
         }
     }
     if (!noScrolling)
