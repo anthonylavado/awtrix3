@@ -46,6 +46,8 @@ struct Notification
     float scrollSpeed = 100;
     bool topText = true;
     bool noScrolling = true;
+    int16_t scrollHold = 0;
+    int16_t scrollHoldCounter = 0;
     String sound;
     bool loopSound;
     String rtttl;
