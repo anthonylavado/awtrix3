@@ -708,6 +708,7 @@ bool DisplayManager_::generateCustomPage(const String &name, JsonObject doc, boo
   customApp.center = doc.containsKey("center") ? doc["center"].as<bool>() : true;
   customApp.noScrolling = doc.containsKey("noScroll") ? doc["noScroll"] : false;
   customApp.scrollToEnd = doc.containsKey("scrollToEnd") ? doc["scrollToEnd"].as<bool>() : false;
+  customApp.scrollHold = doc.containsKey("scrollHold") ? doc["scrollHold"].as<float>() : 0;
   customApp.name = name;
 
   customApp.overlay = doc.containsKey("overlay") ? getOverlay(doc["overlay"].as<String>()) : NONE;
@@ -890,6 +891,8 @@ bool DisplayManager_::generateNotification(uint8_t source, const char *json)
   newNotification.textOffset = doc.containsKey("textOffset") ? doc["textOffset"] : 0;
   newNotification.topText = doc.containsKey("topText") ? doc["topText"].as<bool>() : false;
   newNotification.noScrolling = doc.containsKey("noScroll") ? doc["noScroll"] : false;
+  newNotification.scrollToEnd = doc.containsKey("scrollToEnd") ? doc["scrollToEnd"].as<bool>() : false;
+  newNotification.scrollHold = doc.containsKey("scrollHold") ? doc["scrollHold"].as<float>() : 0;
   newNotification.repeat = doc.containsKey("repeat") ? doc["repeat"].as<int>() : -1;
   newNotification.fade = doc.containsKey("fadeText") ? doc["fadeText"].as<int>() : 0;
   newNotification.blink = doc.containsKey("blinkText") ? doc["blinkText"].as<int>() : 0;

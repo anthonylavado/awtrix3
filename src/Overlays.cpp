@@ -193,6 +193,20 @@ void NotifyOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, GifPl
     // Check if text needs to be scrolled
     if (textWidth > availableWidth && notifications[0].scrollposition + notifications[0].textOffset <= (-textWidth))
     {
+        if (notifications[0].scrollHold > 0)
+        {
+            if (!notifications[0].isScrollHolding)
+            {
+                notifications[0].isScrollHolding = true;
+                notifications[0].scrollHoldStart = millis();
+            }
+            if ((millis() - notifications[0].scrollHoldStart) < (unsigned long)(notifications[0].scrollHold * 1000))
+            {
+                notifications[0].scrollposition = -(int16_t)textWidth - notifications[0].textOffset;
+                return;
+            }
+            notifications[0].isScrollHolding = false;
+        }
         // Reset scroll position and icon position if needed
         notifications[0].scrollDelay = 0;
         notifications[0].scrollposition = 9 + notifications[0].textOffset;
