@@ -209,6 +209,43 @@ void ServerManager_::setup()
     esp_wifi_set_max_tx_power(80); // 82 * 0.25 dBm = 20.5 dBm
     wifi_country_t wifi_country = {.cc = "CN", .schan = 1, .nchan = 13, .policy = WIFI_COUNTRY_POLICY_AUTO};
     esp_wifi_set_country(&wifi_country);
+
+    // Remove stale param-box entries left by older firmware (old format used numeric suffixes
+    // like "param-box1"; current format uses named suffixes like "param-box-Network"). Both
+    // sets are present after a firmware upgrade and the UI renders them as duplicate sections.
+    // Section headers hold no user data so wiping them is safe; addOptionBox re-creates them.
+    {
+        File f = LittleFS.open("/DoNotTouch.json", "r");
+        if (f)
+        {
+            int docSize = max((int)(f.size() * 1.33), 2048);
+            DynamicJsonDocument doc(docSize);
+            if (!deserializeJson(doc, f))
+            {
+                f.close();
+                JsonObject obj = doc.as<JsonObject>();
+                std::vector<String> stale;
+                for (JsonPair kv : obj)
+                {
+                    if (String(kv.key().c_str()).startsWith("param-box"))
+                        stale.push_back(kv.key().c_str());
+                }
+                if (!stale.empty())
+                {
+                    for (const String &k : stale)
+                        obj.remove(k.c_str());
+                    File fw = LittleFS.open("/DoNotTouch.json", "w");
+                    serializeJsonPretty(doc, fw);
+                    fw.close();
+                }
+            }
+            else
+            {
+                f.close();
+            }
+        }
+    }
+
     if (!local_IP.fromString(NET_IP) || !gateway.fromString(NET_GW) || !subnet.fromString(NET_SN) || !primaryDNS.fromString(NET_PDNS) || !secondaryDNS.fromString(NET_SDNS))
         NET_STATIC = false;
     if (NET_STATIC)
