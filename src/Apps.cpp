@@ -629,6 +629,35 @@ void ShowCustomApp(String name, FastLED_NeoMatrix *matrix, MatrixDisplayUiState 
             ca->scrollDelay = 0;
             ca->scrollposition = 9 + ca->textOffset;
         }
+        else if (ca->scrollToEnd)
+        {
+            // scrollToEnd clamps the scroll position so it never reaches -textWidth;
+            // detect completion here when the position has been clamped at the stop point.
+            float stopPosition = (float)(32 - ca->textOffset - (int16_t)textWidth);
+            if (ca->scrollposition <= stopPosition)
+            {
+                if ((ca->currentRepeat + 1 >= ca->repeat) && (ca->repeat > 0))
+                {
+                    DisplayManager.setAutoTransition(true);
+                    ca->currentRepeat = 0;
+                    DisplayManager.nextApp();
+                    ca->scrollDelay = 0;
+                    ca->scrollposition = 9 + ca->textOffset;
+                    return;
+                }
+                else if (ca->repeat > 0)
+                {
+                    ++ca->currentRepeat;
+                    ca->scrollDelay = 0;
+                    ca->scrollposition = 9 + ca->textOffset;
+                }
+                else
+                {
+                    // No repeat — re-enable auto-transition so the duration timer can advance
+                    DisplayManager.setAutoTransition(true);
+                }
+            }
+        }
     }
     if (!noScrolling)
     {
