@@ -241,6 +241,12 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
         wdPosY = 0;
         timePosY = 7;
     }
+    else if (TIME_MODE == 1)
+    {
+        // compact layout: time high, ticks at bottom
+        wdPosY = 7;
+        timePosY = 1;
+    }
     else
     {
         // week days on bottom line
@@ -249,7 +255,7 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
     }
 
     // time
-    DisplayManager.printText(12 + x, timePosY + y, t, TIME_MODE == 0, 2);
+    DisplayManager.printText((TIME_MODE == 1 ? 13 : 12) + x, timePosY + y, t, TIME_MODE == 0, 2);
 
     // day of month in calendar box
     if (TIME_MODE > 0)
@@ -258,11 +264,14 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
         char day_str[3];
         sprintf(day_str, "%d", timer_localtime()->tm_mday);
 
+        // MODE 1: box shifted 1px right to match compact layout
+        int boxX = (TIME_MODE == 1) ? x + 1 : x;
+
         // calendar box
-        DisplayManager.drawFilledRect(x, y, 9, 8, CALENDAR_BODY_COLOR);
+        DisplayManager.drawFilledRect(boxX, y, 9, 8, CALENDAR_BODY_COLOR);
         if (TIME_MODE <= 2)
         {
-            DisplayManager.drawFilledRect(x, y, 9, 2, CALENDAR_HEADER_COLOR);
+            DisplayManager.drawFilledRect(boxX, y, 9, 2, CALENDAR_HEADER_COLOR);
         }
         else
         {
@@ -275,7 +284,8 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
             offset = 3;
         else
             offset = 1;
-        DisplayManager.setCursor(offset + x, 7 + y);
+        int dayY = (TIME_MODE == 1) ? 2 : 7;
+        DisplayManager.setCursor(offset + boxX, dayY + y);
         DisplayManager.setTextColor(CALENDAR_TEXT_COLOR);
         DisplayManager.matrixPrint(day_str);
     }
@@ -286,18 +296,22 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
     // line of week days
     uint8_t LINE_WIDTH = TIME_MODE > 0 ? 2 : 3;
     uint8_t LINE_SPACING = 1;
-    uint8_t LINE_START = TIME_MODE > 0 ? 10 : 2;
+    // MODE 1: ticks shifted 1px right to align with box
+    uint8_t LINE_START = (TIME_MODE == 1) ? 11 : TIME_MODE > 0 ? 10 : 2;
     uint8_t dayOffset = START_ON_MONDAY ? 0 : 1;
+    int activeDayIdx = (timer_localtime()->tm_wday + 6 + dayOffset) % 7;
+    bool isSunday = (timer_localtime()->tm_wday == 0);
     for (int i = 0; i <= 6; i++)
     {
         int lineStart = LINE_START + i * (LINE_WIDTH + LINE_SPACING);
         int lineEnd = lineStart + LINE_WIDTH - 1;
 
         uint32_t color;
-        if (i == (timer_localtime()->tm_wday + 6 + dayOffset) % 7)
-            color = WDC_ACTIVE; // current day
+        if (i == activeDayIdx)
+            // MODE 1: Sunday tick uses header colour (red) to match calendar header
+            color = (TIME_MODE == 1 && isSunday) ? CALENDAR_HEADER_COLOR : WDC_ACTIVE;
         else
-            color = WDC_INACTIVE; // other days
+            color = WDC_INACTIVE;
 
         DisplayManager.drawLine(lineStart + x, wdPosY + y, lineEnd + x, wdPosY + y, color);
     }
