@@ -321,7 +321,6 @@ void pushCustomApp(String name, int position)
   {
     activeIt->second = customAppCallbacks[availableCallbackIndex];
     ui->setApps(Apps);
-    DisplayManager.saveAppLoop();
     DisplayManager.getInstance().setAutoTransition(true);
     return;
   }
@@ -345,9 +344,28 @@ void pushCustomApp(String name, int position)
   }
   else
   {
-    // Brand new app
-    Apps.push_back(std::make_pair(name, customAppCallbacks[availableCallbackIndex]));
-    DisplayManager.appLoopConfig.push_back(name);
+    // Brand new app - honour position hint if provided
+    if (position >= 0 && position <= (int)DisplayManager.appLoopConfig.size())
+    {
+      DisplayManager.appLoopConfig.insert(DisplayManager.appLoopConfig.begin() + position, name);
+      // Find the matching insertion index in the active Apps vector
+      int insertIdx = 0;
+      auto configIt = DisplayManager.appLoopConfig.begin() + position;
+      for (auto it = DisplayManager.appLoopConfig.begin(); it != configIt; ++it)
+      {
+        if (std::find_if(Apps.begin(), Apps.end(), [&](const std::pair<String, AppCallback> &a)
+                         { return a.first == *it; }) != Apps.end())
+        {
+          insertIdx++;
+        }
+      }
+      Apps.insert(Apps.begin() + insertIdx, std::make_pair(name, customAppCallbacks[availableCallbackIndex]));
+    }
+    else
+    {
+      Apps.push_back(std::make_pair(name, customAppCallbacks[availableCallbackIndex]));
+      DisplayManager.appLoopConfig.push_back(name);
+    }
   }
 
   ui->setApps(Apps);
@@ -690,6 +708,7 @@ bool DisplayManager_::generateCustomPage(const String &name, JsonObject doc, boo
   customApp.center = doc.containsKey("center") ? doc["center"].as<bool>() : true;
   customApp.noScrolling = doc.containsKey("noScroll") ? doc["noScroll"] : false;
   customApp.scrollToEnd = doc.containsKey("scrollToEnd") ? doc["scrollToEnd"].as<bool>() : false;
+  customApp.scrollHold = doc.containsKey("scrollHold") ? doc["scrollHold"].as<float>() : 0;
   customApp.name = name;
 
   customApp.overlay = doc.containsKey("overlay") ? getOverlay(doc["overlay"].as<String>()) : NONE;
@@ -872,6 +891,8 @@ bool DisplayManager_::generateNotification(uint8_t source, const char *json)
   newNotification.textOffset = doc.containsKey("textOffset") ? doc["textOffset"] : 0;
   newNotification.topText = doc.containsKey("topText") ? doc["topText"].as<bool>() : false;
   newNotification.noScrolling = doc.containsKey("noScroll") ? doc["noScroll"] : false;
+  newNotification.scrollToEnd = doc.containsKey("scrollToEnd") ? doc["scrollToEnd"].as<bool>() : false;
+  newNotification.scrollHold = doc.containsKey("scrollHold") ? doc["scrollHold"].as<float>() : 0;
   newNotification.repeat = doc.containsKey("repeat") ? doc["repeat"].as<int>() : -1;
   newNotification.fade = doc.containsKey("fadeText") ? doc["fadeText"].as<int>() : 0;
   newNotification.blink = doc.containsKey("blinkText") ? doc["blinkText"].as<int>() : 0;
@@ -2407,42 +2428,44 @@ void DisplayManager_::reorderApps(const String &jsonString)
 
   JsonArray jsonArray = jsonDocument.as<JsonArray>();
 
-  // 1. Create a pool of all currently known apps (Native + Custom)
-  std::vector<std::pair<String, AppCallback>> appPool;
-  const char* nativeNames[] = {"Time", "Date", "Temperature", "Humidity", "Battery"};
-  for (const char* n : nativeNames) {
-      auto native = getNativeAppByName(n);
-      if (native.second != nullptr) appPool.push_back(native);
-  }
-  
-  for (const auto& app : Apps) {
-      bool isNative = false;
-      for (const char* n : nativeNames) { if (app.first == n) isNative = true; }
-      if (!isNative) {
-          if (std::find_if(appPool.begin(), appPool.end(), [&](const std::pair<String, AppCallback>& p){ return p.first == app.first; }) == appPool.end()) {
-              appPool.push_back(app);
-          }
-      }
-  }
-
-  // 2. Rebuild the Apps vector and appLoopConfig based on requested order
-  std::vector<std::pair<String, AppCallback>> newApps;
+  // 1. Build the new order template from the provided array
   std::vector<String> newConfig;
-
   for (JsonVariant v : jsonArray)
   {
-    String appName = v.as<String>();
-    newConfig.push_back(appName);
+    newConfig.push_back(v.as<String>());
+  }
 
-    // Find callback in pool
-    auto it = std::find_if(appPool.begin(), appPool.end(), [&](const std::pair<String, AppCallback>& p) { return p.first == appName; });
-    if (it != appPool.end()) {
-        newApps.push_back(*it);
+  // 2. Preserve any previously known apps not listed (append at end so they keep their slot)
+  for (const auto &name : appLoopConfig)
+  {
+    if (std::find(newConfig.begin(), newConfig.end(), name) == newConfig.end())
+    {
+      newConfig.push_back(name);
+    }
+  }
+  for (const auto &app : Apps)
+  {
+    if (std::find(newConfig.begin(), newConfig.end(), app.first) == newConfig.end())
+    {
+      newConfig.push_back(app.first);
+    }
+  }
+
+  appLoopConfig = newConfig;
+
+  // 3. Re-sort currently active Apps to match the new template order without adding or removing any
+  std::vector<std::pair<String, AppCallback>> newApps;
+  for (const auto &name : appLoopConfig)
+  {
+    auto it = std::find_if(Apps.begin(), Apps.end(), [&](const std::pair<String, AppCallback> &a)
+                           { return a.first == name; });
+    if (it != Apps.end())
+    {
+      newApps.push_back(*it);
     }
   }
 
   Apps = newApps;
-  appLoopConfig = newConfig;
 
   ui->setApps(Apps);
   saveAppLoop();

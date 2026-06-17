@@ -241,6 +241,12 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
         wdPosY = 0;
         timePosY = 7;
     }
+    else if (TIME_MODE == 1)
+    {
+        // compact layout: same vertical positions as MODE 0, only horizontal offsets differ
+        wdPosY = 7;
+        timePosY = 6;
+    }
     else
     {
         // week days on bottom line
@@ -249,7 +255,7 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
     }
 
     // time
-    DisplayManager.printText(12 + x, timePosY + y, t, TIME_MODE == 0, 2);
+    DisplayManager.printText((TIME_MODE == 1 ? 13 : 12) + x, timePosY + y, t, TIME_MODE == 0, 2);
 
     // day of month in calendar box
     if (TIME_MODE > 0)
@@ -258,11 +264,14 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
         char day_str[3];
         sprintf(day_str, "%d", timer_localtime()->tm_mday);
 
+        // MODE 1: box shifted 1px right to match compact layout
+        int boxX = (TIME_MODE == 1) ? x + 1 : x;
+
         // calendar box
-        DisplayManager.drawFilledRect(x, y, 9, 8, CALENDAR_BODY_COLOR);
+        DisplayManager.drawFilledRect(boxX, y, 9, 8, CALENDAR_BODY_COLOR);
         if (TIME_MODE <= 2)
         {
-            DisplayManager.drawFilledRect(x, y, 9, 2, CALENDAR_HEADER_COLOR);
+            DisplayManager.drawFilledRect(boxX, y, 9, 2, CALENDAR_HEADER_COLOR);
         }
         else
         {
@@ -275,7 +284,8 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
             offset = 3;
         else
             offset = 1;
-        DisplayManager.setCursor(offset + x, 7 + y);
+        int dayY = 7;
+        DisplayManager.setCursor(offset + boxX, dayY + y);
         DisplayManager.setTextColor(CALENDAR_TEXT_COLOR);
         DisplayManager.matrixPrint(day_str);
     }
@@ -286,18 +296,22 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
     // line of week days
     uint8_t LINE_WIDTH = TIME_MODE > 0 ? 2 : 3;
     uint8_t LINE_SPACING = 1;
-    uint8_t LINE_START = TIME_MODE > 0 ? 10 : 2;
+    // MODE 1: ticks shifted 1px right to align with box
+    uint8_t LINE_START = (TIME_MODE == 1) ? 11 : TIME_MODE > 0 ? 10 : 2;
     uint8_t dayOffset = START_ON_MONDAY ? 0 : 1;
+    int activeDayIdx = (timer_localtime()->tm_wday + 6 + dayOffset) % 7;
+    bool isSunday = (timer_localtime()->tm_wday == 0);
     for (int i = 0; i <= 6; i++)
     {
         int lineStart = LINE_START + i * (LINE_WIDTH + LINE_SPACING);
         int lineEnd = lineStart + LINE_WIDTH - 1;
 
         uint32_t color;
-        if (i == (timer_localtime()->tm_wday + 6 + dayOffset) % 7)
-            color = WDC_ACTIVE; // current day
+        if (i == activeDayIdx)
+            // MODE 1: Sunday tick uses header colour (red) to match calendar header
+            color = (TIME_MODE == 1 && isSunday) ? CALENDAR_HEADER_COLOR : WDC_ACTIVE;
         else
-            color = WDC_INACTIVE; // other days
+            color = WDC_INACTIVE;
 
         DisplayManager.drawLine(lineStart + x, wdPosY + y, lineEnd + x, wdPosY + y, color);
     }
@@ -591,29 +605,97 @@ void ShowCustomApp(String name, FastLED_NeoMatrix *matrix, MatrixDisplayUiState 
         DisplayManager.setAutoTransition(true);
     }
 
+    bool scrollHoldActive = false;
     if (textWidth > availableWidth && !(state->appState == IN_TRANSITION))
     {
         if (ca->scrollposition + ca->textOffset <= (-textWidth))
         {
-            if (ca->iconWasPushed && ca->pushIcon == 2)
+            if (ca->scrollHold > 0)
             {
-                ca->iconWasPushed = false;
+                if (!ca->isScrollHolding)
+                {
+                    ca->isScrollHolding = true;
+                    ca->scrollHoldStart = millis();
+                }
+                if ((millis() - ca->scrollHoldStart) < (unsigned long)(ca->scrollHold * 1000))
+                {
+                    scrollHoldActive = true;
+                }
+                else
+                {
+                    ca->isScrollHolding = false;
+                }
             }
-            if ((ca->currentRepeat + 1 >= ca->repeat) && (ca->repeat > 0))
+            if (!scrollHoldActive)
             {
-                DisplayManager.setAutoTransition(true);
-                ca->currentRepeat = 0;
-                DisplayManager.nextApp();
+                if (ca->iconWasPushed && ca->pushIcon == 2)
+                {
+                    ca->iconWasPushed = false;
+                }
+                if ((ca->currentRepeat + 1 >= ca->repeat) && (ca->repeat > 0))
+                {
+                    DisplayManager.setAutoTransition(true);
+                    ca->currentRepeat = 0;
+                    DisplayManager.nextApp();
+                    ca->scrollDelay = 0;
+                    ca->scrollposition = 9 + ca->textOffset;
+                    return;
+                }
+                else if (ca->repeat > 0)
+                {
+                    ++ca->currentRepeat;
+                }
                 ca->scrollDelay = 0;
                 ca->scrollposition = 9 + ca->textOffset;
-                return;
             }
-            else if (ca->repeat > 0)
+        }
+        else if (ca->scrollToEnd)
+        {
+            // scrollToEnd clamps the scroll position so it never reaches -textWidth;
+            // detect completion here when the position has been clamped at the stop point.
+            float stopPosition = (float)(32 - ca->textOffset - (int16_t)textWidth);
+            if (ca->scrollposition <= stopPosition)
             {
-                ++ca->currentRepeat;
+                if (ca->scrollHold > 0)
+                {
+                    if (!ca->isScrollHolding)
+                    {
+                        ca->isScrollHolding = true;
+                        ca->scrollHoldStart = millis();
+                    }
+                    if ((millis() - ca->scrollHoldStart) < (unsigned long)(ca->scrollHold * 1000))
+                    {
+                        scrollHoldActive = true;
+                    }
+                    else
+                    {
+                        ca->isScrollHolding = false;
+                    }
+                }
+                if (!scrollHoldActive)
+                {
+                    if ((ca->currentRepeat + 1 >= ca->repeat) && (ca->repeat > 0))
+                    {
+                        DisplayManager.setAutoTransition(true);
+                        ca->currentRepeat = 0;
+                        DisplayManager.nextApp();
+                        ca->scrollDelay = 0;
+                        ca->scrollposition = 9 + ca->textOffset;
+                        return;
+                    }
+                    else if (ca->repeat > 0)
+                    {
+                        ++ca->currentRepeat;
+                        ca->scrollDelay = 0;
+                        ca->scrollposition = 9 + ca->textOffset;
+                    }
+                    else
+                    {
+                        // No repeat — re-enable auto-transition so the duration timer can advance
+                        DisplayManager.setAutoTransition(true);
+                    }
+                }
             }
-            ca->scrollDelay = 0;
-            ca->scrollposition = 9 + ca->textOffset;
         }
     }
     if (!noScrolling)

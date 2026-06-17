@@ -54,6 +54,9 @@ struct CustomApp
     bool topText = true;
     bool noScrolling = true;
     bool scrollToEnd = false;
+    float scrollHold = 0;
+    unsigned long scrollHoldStart = 0;
+    bool isScrollHolding = false;
     bool lifeTimeEnd = false;
     uint8_t jpegDataBuffer[1000];
     unsigned int jpegDataSize = 0;
