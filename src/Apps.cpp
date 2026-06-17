@@ -243,9 +243,9 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
     }
     else if (TIME_MODE == 1)
     {
-        // compact layout: time high, ticks at bottom
+        // compact layout: same vertical positions as MODE 0, only horizontal offsets differ
         wdPosY = 7;
-        timePosY = 1;
+        timePosY = 6;
     }
     else
     {
@@ -284,7 +284,7 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
             offset = 3;
         else
             offset = 1;
-        int dayY = (TIME_MODE == 1) ? 2 : 7;
+        int dayY = 7;
         DisplayManager.setCursor(offset + boxX, dayY + y);
         DisplayManager.setTextColor(CALENDAR_TEXT_COLOR);
         DisplayManager.matrixPrint(day_str);
@@ -605,6 +605,7 @@ void ShowCustomApp(String name, FastLED_NeoMatrix *matrix, MatrixDisplayUiState 
         DisplayManager.setAutoTransition(true);
     }
 
+    bool scrollHoldActive = false;
     if (textWidth > availableWidth && !(state->appState == IN_TRANSITION))
     {
         if (ca->scrollposition + ca->textOffset <= (-textWidth))
@@ -618,30 +619,35 @@ void ShowCustomApp(String name, FastLED_NeoMatrix *matrix, MatrixDisplayUiState 
                 }
                 if ((millis() - ca->scrollHoldStart) < (unsigned long)(ca->scrollHold * 1000))
                 {
-                    ca->scrollposition = -(int16_t)textWidth - ca->textOffset;
+                    scrollHoldActive = true;
+                }
+                else
+                {
+                    ca->isScrollHolding = false;
+                }
+            }
+            if (!scrollHoldActive)
+            {
+                if (ca->iconWasPushed && ca->pushIcon == 2)
+                {
+                    ca->iconWasPushed = false;
+                }
+                if ((ca->currentRepeat + 1 >= ca->repeat) && (ca->repeat > 0))
+                {
+                    DisplayManager.setAutoTransition(true);
+                    ca->currentRepeat = 0;
+                    DisplayManager.nextApp();
+                    ca->scrollDelay = 0;
+                    ca->scrollposition = 9 + ca->textOffset;
                     return;
                 }
-                ca->isScrollHolding = false;
-            }
-            if (ca->iconWasPushed && ca->pushIcon == 2)
-            {
-                ca->iconWasPushed = false;
-            }
-            if ((ca->currentRepeat + 1 >= ca->repeat) && (ca->repeat > 0))
-            {
-                DisplayManager.setAutoTransition(true);
-                ca->currentRepeat = 0;
-                DisplayManager.nextApp();
+                else if (ca->repeat > 0)
+                {
+                    ++ca->currentRepeat;
+                }
                 ca->scrollDelay = 0;
                 ca->scrollposition = 9 + ca->textOffset;
-                return;
             }
-            else if (ca->repeat > 0)
-            {
-                ++ca->currentRepeat;
-            }
-            ca->scrollDelay = 0;
-            ca->scrollposition = 9 + ca->textOffset;
         }
         else if (ca->scrollToEnd)
         {
@@ -659,29 +665,35 @@ void ShowCustomApp(String name, FastLED_NeoMatrix *matrix, MatrixDisplayUiState 
                     }
                     if ((millis() - ca->scrollHoldStart) < (unsigned long)(ca->scrollHold * 1000))
                     {
+                        scrollHoldActive = true;
+                    }
+                    else
+                    {
+                        ca->isScrollHolding = false;
+                    }
+                }
+                if (!scrollHoldActive)
+                {
+                    if ((ca->currentRepeat + 1 >= ca->repeat) && (ca->repeat > 0))
+                    {
+                        DisplayManager.setAutoTransition(true);
+                        ca->currentRepeat = 0;
+                        DisplayManager.nextApp();
+                        ca->scrollDelay = 0;
+                        ca->scrollposition = 9 + ca->textOffset;
                         return;
                     }
-                    ca->isScrollHolding = false;
-                }
-                if ((ca->currentRepeat + 1 >= ca->repeat) && (ca->repeat > 0))
-                {
-                    DisplayManager.setAutoTransition(true);
-                    ca->currentRepeat = 0;
-                    DisplayManager.nextApp();
-                    ca->scrollDelay = 0;
-                    ca->scrollposition = 9 + ca->textOffset;
-                    return;
-                }
-                else if (ca->repeat > 0)
-                {
-                    ++ca->currentRepeat;
-                    ca->scrollDelay = 0;
-                    ca->scrollposition = 9 + ca->textOffset;
-                }
-                else
-                {
-                    // No repeat — re-enable auto-transition so the duration timer can advance
-                    DisplayManager.setAutoTransition(true);
+                    else if (ca->repeat > 0)
+                    {
+                        ++ca->currentRepeat;
+                        ca->scrollDelay = 0;
+                        ca->scrollposition = 9 + ca->textOffset;
+                    }
+                    else
+                    {
+                        // No repeat — re-enable auto-transition so the duration timer can advance
+                        DisplayManager.setAutoTransition(true);
+                    }
                 }
             }
         }

@@ -191,6 +191,7 @@ void NotifyOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, GifPl
     }
 
     // Check if text needs to be scrolled
+    bool notifScrollHoldActive = false;
     if (textWidth > availableWidth && notifications[0].scrollposition + notifications[0].textOffset <= (-textWidth))
     {
         if (notifications[0].scrollHold > 0)
@@ -202,25 +203,30 @@ void NotifyOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, GifPl
             }
             if ((millis() - notifications[0].scrollHoldStart) < (unsigned long)(notifications[0].scrollHold * 1000))
             {
-                notifications[0].scrollposition = -(int16_t)textWidth - notifications[0].textOffset;
-                return;
+                notifScrollHoldActive = true;
             }
-            notifications[0].isScrollHolding = false;
+            else
+            {
+                notifications[0].isScrollHolding = false;
+            }
         }
-        // Reset scroll position and icon position if needed
-        notifications[0].scrollDelay = 0;
-        notifications[0].scrollposition = 9 + notifications[0].textOffset;
-
-        if (notifications[0].pushIcon == 2)
+        if (!notifScrollHoldActive)
         {
-            notifications[0].iconWasPushed = false;
-        }
+            // Reset scroll position and icon position if needed
+            notifications[0].scrollDelay = 0;
+            notifications[0].scrollposition = 9 + notifications[0].textOffset;
 
-        if (notifications[0].repeat > 0)
-        {
-            --notifications[0].repeat;
-            if (notifications[0].repeat == 0)
-                return;
+            if (notifications[0].pushIcon == 2)
+            {
+                notifications[0].iconWasPushed = false;
+            }
+
+            if (notifications[0].repeat > 0)
+            {
+                --notifications[0].repeat;
+                if (notifications[0].repeat == 0)
+                    return;
+            }
         }
     }
 
